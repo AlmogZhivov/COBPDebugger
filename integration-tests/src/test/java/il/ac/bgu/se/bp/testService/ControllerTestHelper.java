@@ -46,7 +46,8 @@ public class ControllerTestHelper implements TestService {
     }
 
     @Override
-    public BooleanResponse toggleWaitForExternal(String userId, ToggleWaitForExternalRequest toggleWaitForExternalRequest) {
+    public BooleanResponse toggleWaitForExternal(String userId,
+            ToggleWaitForExternalRequest toggleWaitForExternalRequest) {
         return bPjsIDERestController.toggleWaitForExternal(userId, toggleWaitForExternalRequest);
     }
 
@@ -81,6 +82,11 @@ public class ControllerTestHelper implements TestService {
     }
 
     @Override
+    public BooleanResponse selectEvent(String userId, SelectEventRequest selectEventRequest) {
+        return bPjsIDERestController.selectEvent(userId, selectEventRequest);
+    }
+
+    @Override
     public BooleanResponse externalEvent(String userId, ExternalEventRequest externalEventRequest) {
         return bPjsIDERestController.externalEvent(userId, externalEventRequest);
     }
@@ -103,5 +109,15 @@ public class ControllerTestHelper implements TestService {
     @Override
     public EventsHistoryResponse getEventsHistory(String userId, int from, int to) {
         return bPjsIDERestController.getEventsHistory(userId, from, to);
+    }
+
+    @Override
+    public BooleanResponse previewSyncSnapshot(String userId, SetSyncSnapshotRequest setSyncSnapshotRequest) {
+        return bPjsIDERestController.previewSyncSnapshot(userId, setSyncSnapshotRequest);
+    }
+
+    @Override
+    public BooleanResponse restoreLatestSnapshot(String userId) {
+        return bPjsIDERestController.restoreLatestSnapshot(userId);
     }
 }

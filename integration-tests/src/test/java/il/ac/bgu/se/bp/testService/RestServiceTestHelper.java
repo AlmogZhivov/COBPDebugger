@@ -84,7 +84,8 @@ public class RestServiceTestHelper implements TestService {
     }
 
     @Override
-    public BooleanResponse toggleWaitForExternal(String userId, ToggleWaitForExternalRequest toggleWaitForExternalRequest) {
+    public BooleanResponse toggleWaitForExternal(String userId,
+            ToggleWaitForExternalRequest toggleWaitForExternalRequest) {
         return performPutRequest(userId, WAIT_EXTERNAL, toggleWaitForExternalRequest, BooleanResponse.class);
     }
 
@@ -119,6 +120,11 @@ public class RestServiceTestHelper implements TestService {
     }
 
     @Override
+    public BooleanResponse selectEvent(String userId, SelectEventRequest selectEventRequest) {
+        return performPostRequest(userId, SELECT_EVENT, selectEventRequest, BooleanResponse.class);
+    }
+
+    @Override
     public BooleanResponse externalEvent(String userId, ExternalEventRequest externalEventRequest) {
         return performPostRequest(userId, EXTERNAL_EVENT, externalEventRequest, BooleanResponse.class);
     }
@@ -141,6 +147,16 @@ public class RestServiceTestHelper implements TestService {
     @Override
     public EventsHistoryResponse getEventsHistory(String userId, int from, int to) {
         return performGetRequest(userId, EVENTS, EventsHistoryResponse.class);
+    }
+
+    @Override
+    public BooleanResponse previewSyncSnapshot(String userId, SetSyncSnapshotRequest setSyncSnapshotRequest) {
+        return performPutRequest(userId, "/previewSnapshot", setSyncSnapshotRequest, BooleanResponse.class);
+    }
+
+    @Override
+    public BooleanResponse restoreLatestSnapshot(String userId) {
+        return performGetRequest(userId, "/restoreSnapshot", BooleanResponse.class);
     }
 
     private <T> T performPostRequest(String userId, String URL, Object body, Class<T> clazz) {

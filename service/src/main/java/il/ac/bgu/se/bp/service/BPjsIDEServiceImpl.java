@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-
 @Service
 public class BPjsIDEServiceImpl implements BPjsIDEService {
 
@@ -68,7 +67,8 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
             return createErrorResponse(ErrorCode.INVALID_SOURCE_CODE);
         }
 
-        BPJsDebugger<BooleanResponse> bpProgramDebugger = debuggerFactory.getBPJsDebugger(userId, filename, DebuggerLevel.LIGHT);
+        BPJsDebugger<BooleanResponse> bpProgramDebugger = debuggerFactory.getBPJsDebugger(userId, filename,
+                DebuggerLevel.LIGHT);
         bpProgramDebugger.subscribe(sessionHandler);
         sessionHandler.addNewRunExecution(userId, bpProgramDebugger, filename);
         sessionHandler.updateLastOperationTime(userId);
@@ -96,7 +96,8 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
     }
 
     private DebugResponse handleNewDebugRequest(DebugRequest debugRequest, String userId, String filename) {
-        BPJsDebugger<BooleanResponse> bpProgramDebugger = debuggerFactory.getBPJsDebugger(userId, filename, DebuggerLevel.NORMAL);
+        BPJsDebugger<BooleanResponse> bpProgramDebugger = debuggerFactory.getBPJsDebugger(userId, filename,
+                DebuggerLevel.NORMAL);
         bpProgramDebugger.subscribe(sessionHandler);
 
         sessionHandler.addNewDebugExecution(userId, bpProgramDebugger, filename);
@@ -106,7 +107,8 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
                 .stream()
                 .collect(Collectors.toMap(Function.identity(), b -> Boolean.TRUE));
 
-        return bpProgramDebugger.startSync(breakpointsMap, debugRequest.isSkipSyncStateToggle(), debugRequest.isSkipBreakpointsToggle(), debugRequest.isWaitForExternalEvents());
+        return bpProgramDebugger.startSync(breakpointsMap, debugRequest.isSkipSyncStateToggle(),
+                debugRequest.isSkipBreakpointsToggle(), debugRequest.isWaitForExternalEvents());
     }
 
     @Override
@@ -121,7 +123,8 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
         }
 
         sessionHandler.updateLastOperationTime(userId);
-        return bpJsDebugger.setBreakpoint(setBreakpointRequest.getLineNumber(), setBreakpointRequest.isStopOnBreakpoint());
+        return bpJsDebugger.setBreakpoint(setBreakpointRequest.getLineNumber(),
+                setBreakpointRequest.isStopOnBreakpoint());
     }
 
     @Override
@@ -140,7 +143,8 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
     }
 
     @Override
-    public BooleanResponse toggleWaitForExternal(String userId, ToggleWaitForExternalRequest toggleWaitForExternalRequest) {
+    public BooleanResponse toggleWaitForExternal(String userId,
+            ToggleWaitForExternalRequest toggleWaitForExternalRequest) {
         if (toggleWaitForExternalRequest == null) {
             return createErrorResponse(ErrorCode.INVALID_REQUEST);
         }
@@ -230,6 +234,22 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
     }
 
     @Override
+    public BooleanResponse selectEvent(String userId, SelectEventRequest selectEventRequest) {
+        if (selectEventRequest == null || StringUtils.isEmpty(selectEventRequest.getEventName())) {
+            return createErrorResponse(ErrorCode.INVALID_REQUEST);
+        }
+
+        BPJsDebugger<BooleanResponse> bpJsDebugger = sessionHandler.getBPjsDebuggerByUser(userId);
+        if (bpJsDebugger == null) {
+            return createErrorResponse(ErrorCode.UNKNOWN_USER);
+        }
+
+        sessionHandler.updateLastOperationTime(userId);
+        String eventName = selectEventRequest.getEventName();
+        return bpJsDebugger.selectEvent(eventName);
+    }
+
+    @Override
     public BooleanResponse externalEvent(String userId, ExternalEventRequest externalEventRequest) {
         if (externalEventRequest == null || StringUtils.isEmpty(externalEventRequest.getExternalEvent())) {
             return createErrorResponse(ErrorCode.INVALID_REQUEST);
@@ -242,8 +262,8 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
 
         sessionHandler.updateLastOperationTime(userId);
         String externalEvent = externalEventRequest.getExternalEvent();
-        return externalEventRequest.isAddEvent() ? bpJsDebugger.addExternalEvent(externalEvent) :
-                bpJsDebugger.removeExternalEvent(externalEvent);
+        return externalEventRequest.isAddEvent() ? bpJsDebugger.addExternalEvent(externalEvent)
+                : bpJsDebugger.removeExternalEvent(externalEvent);
     }
 
     @Override
@@ -298,7 +318,8 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
         }
 
         logger.info("received import sync snapshot request for user: {0}", userId);
-        BPJsDebugger<BooleanResponse> bpProgramDebugger = debuggerFactory.getBPJsDebugger(userId, filename, DebuggerLevel.NORMAL);
+        BPJsDebugger<BooleanResponse> bpProgramDebugger = debuggerFactory.getBPJsDebugger(userId, filename,
+                DebuggerLevel.NORMAL);
         bpProgramDebugger.subscribe(sessionHandler);
 
         boolean isDebug = importSyncSnapshotRequest.isDebug();
@@ -309,16 +330,43 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
                 .stream().collect(Collectors.toMap(Function.identity(), b -> Boolean.TRUE)) : new HashMap<>();
         if (isDebug) {
             sessionHandler.addNewDebugExecution(userId, bpProgramDebugger, filename);
-        }
-        else {
+        } else {
             sessionHandler.addNewRunExecution(userId, bpProgramDebugger, filename);
         }
         sessionHandler.updateLastOperationTime(userId);
-        BooleanResponse setupResponse = bpProgramDebugger.setup(breakpointsMap, isSkipBreakpoints, isSkipSyncPoint, isWaitForExternalEvents);
+        BooleanResponse setupResponse = bpProgramDebugger.setup(breakpointsMap, isSkipBreakpoints, isSkipSyncPoint,
+                isWaitForExternalEvents);
         if (!setupResponse.isSuccess()) {
             return setupResponse;
         }
         return bpProgramDebugger.setSyncSnapshot(importSyncSnapshotRequest.getSyncSnapshot());
+    }
+
+    @Override
+    public BooleanResponse previewSyncSnapshot(String userId, SetSyncSnapshotRequest setSyncSnapshotRequest) {
+        if (setSyncSnapshotRequest == null) {
+            return createErrorResponse(ErrorCode.INVALID_REQUEST);
+        }
+
+        BPJsDebugger<BooleanResponse> bpJsDebugger = sessionHandler.getBPjsDebuggerByUser(userId);
+        if (bpJsDebugger == null) {
+            return createErrorResponse(ErrorCode.UNKNOWN_USER);
+        }
+
+        sessionHandler.updateLastOperationTime(userId);
+        long snapShotTime = setSyncSnapshotRequest.getSnapShotTime();
+        return bpJsDebugger.previewSyncSnapshot(snapShotTime);
+    }
+
+    @Override
+    public BooleanResponse restoreLatestSnapshot(String userId) {
+        BPJsDebugger<BooleanResponse> bpJsDebugger = sessionHandler.getBPjsDebuggerByUser(userId);
+        if (bpJsDebugger == null) {
+            return createErrorResponse(ErrorCode.UNKNOWN_USER);
+        }
+
+        sessionHandler.updateLastOperationTime(userId);
+        return bpJsDebugger.restoreLatestSnapshot();
     }
 
     private BooleanResponse createErrorResponse(ErrorCode errorCode) {

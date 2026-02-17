@@ -1,6 +1,5 @@
 package il.ac.bgu.se.bp.app;
 
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.springframework.boot.SpringApplication;
@@ -12,7 +11,7 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @SpringBootApplication
-@ComponentScan(basePackages="il.ac.bgu.se.bp")
+@ComponentScan(basePackages = "il.ac.bgu.se.bp")
 public class Application {
 
     public static void main(String[] args) {

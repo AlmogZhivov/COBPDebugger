@@ -31,6 +31,7 @@ public class SyncSnapshotHolderImpl implements SyncSnapshotHolder<BProgramSyncSn
 
         return cloneBProgramSyncSnapshot(oldBProgramSyncSnapshot);
     }
+
     @Override
     public synchronized BEvent popValue(long snapshotTime) {
         if (!snapshotsByTimeChosen.containsKey(snapshotTime)) {
@@ -39,6 +40,15 @@ public class SyncSnapshotHolderImpl implements SyncSnapshotHolder<BProgramSyncSn
 
         return snapshotsByTimeChosen.get(snapshotTime).getRight();
     }
+
+    @Override
+    public synchronized BProgramSyncSnapshot getSnapshot(long snapshotTime) {
+        if (!snapshotsByTimeChosen.containsKey(snapshotTime)) {
+            return null;
+        }
+        return cloneBProgramSyncSnapshot(snapshotsByTimeChosen.get(snapshotTime).getLeft());
+    }
+
     private BProgramSyncSnapshot cloneBProgramSyncSnapshot(BProgramSyncSnapshot oldBProgramSyncSnapshot) {
         BProgram aBProgram = oldBProgramSyncSnapshot.getBProgram();
         Set<BThreadSyncSnapshot> someThreadSnapshots = oldBProgramSyncSnapshot.getBThreadSnapshots();
@@ -59,7 +69,8 @@ public class SyncSnapshotHolderImpl implements SyncSnapshotHolder<BProgramSyncSn
         if (snapshotsByTimeChosen.isEmpty() || from > snapshotsByTimeChosen.size() || from > to) {
             return events;
         }
-        List<BEvent> eventsHistory = snapshotsByTimeChosen.values().stream().map(Pair::getRight).filter(Objects::nonNull).collect(Collectors.toList());
+        List<BEvent> eventsHistory = snapshotsByTimeChosen.values().stream().map(Pair::getRight)
+                .filter(Objects::nonNull).collect(Collectors.toList());
         List<Long> eventsTime = snapshotsByTimeChosen.keySet().stream().skip(1).collect(Collectors.toList());
 
         Collections.reverse(eventsHistory);
@@ -72,7 +83,8 @@ public class SyncSnapshotHolderImpl implements SyncSnapshotHolder<BProgramSyncSn
         return events;
     }
 
-    private TreeMap<Long, Pair<BProgramSyncSnapshot, BEvent>> cloneTreeMap(SortedMap<Long, Pair<BProgramSyncSnapshot, BEvent>> treeMap) {
+    private TreeMap<Long, Pair<BProgramSyncSnapshot, BEvent>> cloneTreeMap(
+            SortedMap<Long, Pair<BProgramSyncSnapshot, BEvent>> treeMap) {
         return new TreeMap<>(treeMap);
     }
 }

@@ -82,6 +82,11 @@ public class ControllerTestHelper implements TestService {
     }
 
     @Override
+    public BooleanResponse selectEvent(String userId, SelectEventRequest selectEventRequest) {
+        return bPjsIDERestController.selectEvent(userId, selectEventRequest);
+    }
+
+    @Override
     public BooleanResponse externalEvent(String userId, ExternalEventRequest externalEventRequest) {
         return bPjsIDERestController.externalEvent(userId, externalEventRequest);
     }

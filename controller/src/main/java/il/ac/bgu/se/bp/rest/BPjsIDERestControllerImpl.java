@@ -108,6 +108,13 @@ public class BPjsIDERestControllerImpl implements BPjsIDERestController {
     }
 
     @Override
+    @RequestMapping(value = SELECT_EVENT, method = RequestMethod.POST)
+    public @ResponseBody BooleanResponse selectEvent(@RequestHeader("userId") String userId,
+            @RequestBody SelectEventRequest selectEventRequest) {
+        return bPjsIDEService.selectEvent(userId, selectEventRequest);
+    }
+
+    @Override
     @RequestMapping(value = EXTERNAL_EVENT, method = RequestMethod.POST)
     public @ResponseBody BooleanResponse externalEvent(@RequestHeader("userId") String userId,
             @RequestBody ExternalEventRequest externalEventRequest) {

@@ -120,6 +120,11 @@ public class RestServiceTestHelper implements TestService {
     }
 
     @Override
+    public BooleanResponse selectEvent(String userId, SelectEventRequest selectEventRequest) {
+        return performPostRequest(userId, SELECT_EVENT, selectEventRequest, BooleanResponse.class);
+    }
+
+    @Override
     public BooleanResponse externalEvent(String userId, ExternalEventRequest externalEventRequest) {
         return performPostRequest(userId, EXTERNAL_EVENT, externalEventRequest, BooleanResponse.class);
     }

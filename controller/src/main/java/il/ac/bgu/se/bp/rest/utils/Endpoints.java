@@ -15,10 +15,8 @@ public class Endpoints {
     public static final String STATE_UPDATE = STATE + UPDATE;
     public static final String PROGRAM_UPDATE = PROGRAM + UPDATE;
 
-
     public static final String RUN = "/run";
     public static final String DEBUG = "/debug";
-
 
     public static final String BREAKPOINT = "/breakpoint";
     public static final String STOP = "/stop";
@@ -28,10 +26,11 @@ public class Endpoints {
     public static final String CONTINUE = "/continue";
 
     public static final String NEXT_SYNC = "/nextSync";
+    public static final String SELECT_EVENT = "/selectEvent";
     public static final String SYNC_STATES = "/syncStates";
 
     public static final String EVENTS = "/events";
-    public static final String WAIT_EXTERNAL= "/waitExternal";
+    public static final String WAIT_EXTERNAL = "/waitExternal";
 
     public static final String EXTERNAL_EVENT = "/externalEvent";
     public static final String SYNC_SNAPSHOT = "/syncSnapshot";

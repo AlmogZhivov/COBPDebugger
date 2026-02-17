@@ -234,6 +234,22 @@ public class BPjsIDEServiceImpl implements BPjsIDEService {
     }
 
     @Override
+    public BooleanResponse selectEvent(String userId, SelectEventRequest selectEventRequest) {
+        if (selectEventRequest == null || StringUtils.isEmpty(selectEventRequest.getEventName())) {
+            return createErrorResponse(ErrorCode.INVALID_REQUEST);
+        }
+
+        BPJsDebugger<BooleanResponse> bpJsDebugger = sessionHandler.getBPjsDebuggerByUser(userId);
+        if (bpJsDebugger == null) {
+            return createErrorResponse(ErrorCode.UNKNOWN_USER);
+        }
+
+        sessionHandler.updateLastOperationTime(userId);
+        String eventName = selectEventRequest.getEventName();
+        return bpJsDebugger.selectEvent(eventName);
+    }
+
+    @Override
     public BooleanResponse externalEvent(String userId, ExternalEventRequest externalEventRequest) {
         if (externalEventRequest == null || StringUtils.isEmpty(externalEventRequest.getExternalEvent())) {
             return createErrorResponse(ErrorCode.INVALID_REQUEST);

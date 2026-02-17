@@ -362,6 +362,51 @@ public class BPJsDebuggerImpl implements BPJsDebugger<BooleanResponse> {
         return createSuccessResponse();
     }
 
+    @Override
+    public BooleanResponse selectEvent(String eventName) {
+        BooleanResponse booleanResponse = bPjsProgramValidator.validateNextSync(this);
+        if (!booleanResponse.isSuccess()) {
+            return booleanResponse;
+        }
+
+        if (!syncSnapshot.isStateValid()) {
+            onInvalidStateError("select event fatal error");
+            return createErrorResponse(ErrorCode.INVALID_SYNC_SNAPSHOT_STATE);
+        }
+
+        // Get selectable events
+        EventSelectionStrategy eventSelectionStrategy = bprog.getEventSelectionStrategy();
+        Set<BEvent> possibleEvents = eventSelectionStrategy.selectableEvents(syncSnapshot);
+
+        // Find the event with matching name
+        Optional<BEvent> targetEvent = possibleEvents.stream()
+                .filter(e -> e.getName().equals(eventName))
+                .findFirst();
+
+        if (!targetEvent.isPresent()) {
+            return createErrorResponse(ErrorCode.INVALID_EVENT);
+        }
+
+        // Execute with the selected event
+        bpExecutorService.execute(() -> runSelectEvent(targetEvent.get()));
+        return createSuccessResponse();
+    }
+
+    private void runSelectEvent(BEvent selectedEvent) {
+        logger.info("runSelectEvent with event: {0}, state: {1}", selectedEvent.getName(), state.getDebuggerState());
+
+        state.setDebuggerState(RunnerState.State.RUNNING);
+        notifySubscribers(new ProgramStatusEvent(debuggerId, getRunStatusByDebuggerLevel(debuggerLevel)));
+
+        try {
+            EventSelectionResult eventSelectionResult = new EventSelectionResult(selectedEvent);
+            nextSyncOnChosenEvent(eventSelectionResult);
+        } catch (Exception e) {
+            logger.error("runSelectEvent failed, error: {0}", e.getMessage());
+            notifySubscribers(new BPConsoleEvent(debuggerId, new ConsoleMessage(e.getMessage(), LogType.error)));
+        }
+    }
+
     private void runNextSync() {
         logger.info("runNextSync state: {0}", state.getDebuggerState());
         if (!isThereAnyPossibleEvents()) {

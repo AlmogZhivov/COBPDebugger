@@ -12,49 +12,52 @@ import java.util.SortedMap;
 
 public interface BPJsDebugger<T> extends Debugger<T>, Publisher<BPEvent> {
 
-    T setup(Map<Integer, Boolean> breakpoints, boolean isSkipBreakpoints, boolean isSkipSyncPoints,
-            boolean isWaitForExternalEvents);
+        T setup(Map<Integer, Boolean> breakpoints, boolean isSkipBreakpoints, boolean isSkipSyncPoints,
+                        boolean isWaitForExternalEvents);
 
-    boolean isSetup();
+        boolean isSetup();
 
-    boolean isStarted();
+        boolean isStarted();
 
-    boolean isSkipSyncPoints();
+        boolean isSkipSyncPoints();
 
-    boolean isWaitForExternalEvents();
+        boolean isWaitForExternalEvents();
 
-    boolean isMuteBreakPoints();
+        boolean isMuteBreakPoints();
 
-    T addExternalEvent(String externalEvent);
+        T addExternalEvent(String externalEvent);
 
-    T removeExternalEvent(String externalEvent);
+        T removeExternalEvent(String externalEvent);
 
-    T toggleWaitForExternalEvents(boolean shouldWait);
+        T toggleWaitForExternalEvents(boolean shouldWait);
 
-    DebugResponse startSync(Map<Integer, Boolean> breakpointsMap, boolean isSkipSyncPoints, boolean isSkipBreakpoints,
-            boolean isWaitForExternalEvents);
+        DebugResponse startSync(Map<Integer, Boolean> breakpointsMap, boolean isSkipSyncPoints,
+                        boolean isSkipBreakpoints,
+                        boolean isWaitForExternalEvents);
 
-    T nextSync();
+        T nextSync();
 
-    T toggleMuteSyncPoints(boolean toggleMuteSyncPoints);
+        T selectEvent(String eventName);
 
-    GetSyncSnapshotsResponse getSyncSnapshotsHistory();
+        T toggleMuteSyncPoints(boolean toggleMuteSyncPoints);
 
-    byte[] getSyncSnapshot();
+        GetSyncSnapshotsResponse getSyncSnapshotsHistory();
 
-    T setSyncSnapshot(long snapShotTime);
+        byte[] getSyncSnapshot();
 
-    T setSyncSnapshot(SyncSnapshot newSnapshot);
+        T setSyncSnapshot(long snapShotTime);
 
-    T previewSyncSnapshot(long snapShotTime);
+        T setSyncSnapshot(SyncSnapshot newSnapshot);
 
-    T restoreLatestSnapshot();
+        T previewSyncSnapshot(long snapShotTime);
 
-    RunnerState getDebuggerState();
+        T restoreLatestSnapshot();
 
-    String getDebuggerId();
+        RunnerState getDebuggerState();
 
-    String getDebuggerExecutorId();
+        String getDebuggerId();
 
-    SortedMap<Long, EventInfo> getEventsHistory(int from, int to);
+        String getDebuggerExecutorId();
+
+        SortedMap<Long, EventInfo> getEventsHistory(int from, int to);
 }

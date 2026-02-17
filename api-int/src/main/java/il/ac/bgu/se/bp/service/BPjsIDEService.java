@@ -34,6 +34,8 @@ public interface BPjsIDEService {
 
     BooleanResponse nextSync(String userId);
 
+    BooleanResponse selectEvent(String userId, SelectEventRequest selectEventRequest);
+
     BooleanResponse externalEvent(String userId, ExternalEventRequest externalEventRequest);
 
     EventsHistoryResponse getEventsHistory(String userId, int from, int to);

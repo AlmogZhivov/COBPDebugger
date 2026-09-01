@@ -19,6 +19,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.mozilla.javascript.*;
 import org.mozilla.javascript.tools.debugger.Dim;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,6 +39,9 @@ public class DebuggerStateHelper {
     private String currentEvent = null;
     private static final int INITIAL_INDEX_FOR_EVENTS_HISTORY_ON_SYNC_STATE = 0;
     private static final int FINAL_INDEX_FOR_EVENTS_HISTORY_ON_SYNC_STATE = 10;
+    private static final int MAX_VARIABLE_DEPTH = 8;
+    private static final int MAX_VARIABLE_ENTRIES = 100;
+    private static final int MAX_VARIABLE_STRING_LENGTH = 2000;
     private BPJsDebugger bpJsDebugger;
     private DebuggerLevel debuggerLevel;
 
@@ -92,7 +96,7 @@ public class DebuggerStateHelper {
 
         Object[] ids = Arrays.stream(syncSnapshot.getBProgram().getGlobalScope().getIds()).filter((p) -> !p.toString().equals("bp")).toArray();
         for (Object id : ids) {
-            Object jsValue = collectJsValue(syncSnapshot.getBProgram().getFromGlobalScope(id.toString(), Object.class).get());
+            Object jsValue = syncSnapshot.getBProgram().getFromGlobalScope(id.toString(), Object.class).get();
             String var_value = getVarGsonValue(jsValue);
             globalEnv.put(id.toString(), var_value);
         }
@@ -354,7 +358,7 @@ public class DebuggerStateHelper {
             String itsName = getValue(interpretedData, "itsName");
             Object[] ids = Arrays.stream(scope.getIds()).filter((p) -> !p.toString().equals("arguments") && !p.toString().equals(itsName + "param")).toArray();
             for (Object id : ids) {
-                Object jsValue = collectJsValue(scope.get(id));
+                Object jsValue = scope.get(id);
                 String var_value = getVarGsonValue(jsValue);
                 variables.put(id.toString(), var_value);
             }
@@ -366,16 +370,20 @@ public class DebuggerStateHelper {
     }
 
     private String getVarGsonValue(Object jsValue) {
-        if (jsValue instanceof JsEventSet)
-            return Objects.toString(jsValue);
+        return serializeDebuggerValue(jsValue);
+    }
+
+    static String serializeDebuggerValue(Object jsValue) {
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.serializeSpecialFloatingPointValues();
         Gson gson = gsonBuilder.create();
         try {
-            return gson.toJson(jsValue);
-        } catch (Exception e) {
-            logger.error("getVarGsonValue Error: jsValue: {0}, error: {1} ", e, jsValue, e.getMessage());
-            return null;
+            Object safeValue = makeJsonSafe(jsValue, new IdentityHashMap<>(), 0);
+            return gson.toJson(safeValue);
+        } catch (StackOverflowError | RuntimeException e) {
+            logger.error("getVarGsonValue Error: type: {0}, error: {1}", e,
+                    jsValue == null ? "null" : jsValue.getClass().getName(), e.getMessage());
+            return gson.toJson(objectLabel(jsValue));
         }
     }
 
@@ -383,41 +391,164 @@ public class DebuggerStateHelper {
         return lastState;
     }
 
-    /**
-     * Take a Javascript value from Rhino, build a Java value for it.
-     *
-     * @param jsValue
-     * @return
-     */
-    private Object collectJsValue(Object jsValue) {
-        if (jsValue == null) {
+    private static Object makeJsonSafe(Object jsValue, IdentityHashMap<Object, Boolean> active, int depth) {
+        if (jsValue == null || jsValue == Undefined.instance || jsValue == Scriptable.NOT_FOUND) {
             return null;
-        } else if (jsValue instanceof NativeFunction) {
-            return ((NativeFunction) jsValue).getTypeOf();
-        } else if (jsValue instanceof ArrowFunction) {
-            return ((ArrowFunction) jsValue).getTypeOf();
-        } else if (jsValue instanceof NativeArray) {
-            NativeArray jsArr = (NativeArray) jsValue;
-            List<Object> retVal = new ArrayList<>((int) jsArr.getLength());
-            for (int idx = 0; idx < jsArr.getLength(); idx++) {
-                retVal.add(collectJsValue(jsArr.get(idx)));
-            }
-            return retVal;
-        } else if (jsValue instanceof ScriptableObject) {
-            ScriptableObject jsObj = (ScriptableObject) jsValue;
-            Map<Object, Object> retVal = new HashMap<>();
-            for (Object key : jsObj.getIds()) {
-                retVal.put(key, collectJsValue(jsObj.get(key)));
-            }
-            return retVal;
-        } else if (jsValue instanceof ConsString) {
-            return ((ConsString) jsValue).toString();
-        } else if (jsValue instanceof NativeJavaObject) {
-            NativeJavaObject jsJavaObj = (NativeJavaObject) jsValue;
-            return jsJavaObj.unwrap();
-        } else {
+        }
+        if (jsValue instanceof String || jsValue instanceof Character || jsValue instanceof Boolean) {
+            return boundedString(String.valueOf(jsValue));
+        }
+        if (jsValue instanceof Number) {
             return jsValue;
         }
+        if (jsValue instanceof ConsString) {
+            return boundedString(jsValue.toString());
+        }
+        if (jsValue instanceof NativeFunction) {
+            return ((NativeFunction) jsValue).getTypeOf();
+        }
+        if (jsValue instanceof ArrowFunction) {
+            return ((ArrowFunction) jsValue).getTypeOf();
+        }
+        if (jsValue instanceof BEvent) {
+            return ((BEvent) jsValue).getName();
+        }
+        if (jsValue instanceof EventSet || jsValue instanceof JsEventSet) {
+            return safeToString(jsValue);
+        }
+        if (depth >= MAX_VARIABLE_DEPTH) {
+            return "<max-depth:" + jsValue.getClass().getSimpleName() + ">";
+        }
+        if (active.containsKey(jsValue)) {
+            return "<circular:" + jsValue.getClass().getSimpleName() + ">";
+        }
+
+        if (jsValue instanceof NativeJavaObject) {
+            Object unwrapped = ((NativeJavaObject) jsValue).unwrap();
+            if (unwrapped == jsValue) {
+                return objectLabel(jsValue);
+            }
+            return makeJsonSafe(unwrapped, active, depth + 1);
+        }
+
+        if (jsValue instanceof NativeArray) {
+            NativeArray jsArray = (NativeArray) jsValue;
+            active.put(jsValue, Boolean.TRUE);
+            try {
+                int length = (int) Math.min(jsArray.getLength(), MAX_VARIABLE_ENTRIES);
+                List<Object> values = new ArrayList<>(length + 1);
+                for (int index = 0; index < length; index++) {
+                    values.add(makeJsonSafe(jsArray.get(index), active, depth + 1));
+                }
+                if (jsArray.getLength() > MAX_VARIABLE_ENTRIES) {
+                    values.add("<" + (jsArray.getLength() - MAX_VARIABLE_ENTRIES) + " more entries>");
+                }
+                return values;
+            } finally {
+                active.remove(jsValue);
+            }
+        }
+
+        if (jsValue instanceof Scriptable) {
+            Scriptable scriptable = (Scriptable) jsValue;
+            active.put(jsValue, Boolean.TRUE);
+            try {
+                Map<String, Object> values = new LinkedHashMap<>();
+                Object[] ids = scriptable.getIds();
+                int count = Math.min(ids.length, MAX_VARIABLE_ENTRIES);
+                for (int index = 0; index < count; index++) {
+                    Object id = ids[index];
+                    Object value = id instanceof Number
+                            ? scriptable.get(((Number) id).intValue(), scriptable)
+                            : scriptable.get(String.valueOf(id), scriptable);
+                    values.put(boundedString(String.valueOf(id)), makeJsonSafe(value, active, depth + 1));
+                }
+                if (ids.length > MAX_VARIABLE_ENTRIES) {
+                    values.put("<truncated>", (ids.length - MAX_VARIABLE_ENTRIES) + " more entries");
+                }
+                return values;
+            } finally {
+                active.remove(jsValue);
+            }
+        }
+
+        if (jsValue instanceof Map) {
+            active.put(jsValue, Boolean.TRUE);
+            try {
+                Map<String, Object> values = new LinkedHashMap<>();
+                int count = 0;
+                for (Object entryObject : ((Map<?, ?>) jsValue).entrySet()) {
+                    if (count++ >= MAX_VARIABLE_ENTRIES) {
+                        values.put("<truncated>", "more entries");
+                        break;
+                    }
+                    Map.Entry<?, ?> entry = (Map.Entry<?, ?>) entryObject;
+                    values.put(boundedString(String.valueOf(entry.getKey())),
+                            makeJsonSafe(entry.getValue(), active, depth + 1));
+                }
+                return values;
+            } finally {
+                active.remove(jsValue);
+            }
+        }
+
+        if (jsValue instanceof Iterable) {
+            active.put(jsValue, Boolean.TRUE);
+            try {
+                List<Object> values = new ArrayList<>();
+                for (Object value : (Iterable<?>) jsValue) {
+                    if (values.size() >= MAX_VARIABLE_ENTRIES) {
+                        values.add("<more entries>");
+                        break;
+                    }
+                    values.add(makeJsonSafe(value, active, depth + 1));
+                }
+                return values;
+            } finally {
+                active.remove(jsValue);
+            }
+        }
+
+        if (jsValue.getClass().isArray()) {
+            active.put(jsValue, Boolean.TRUE);
+            try {
+                int sourceLength = Array.getLength(jsValue);
+                int length = Math.min(sourceLength, MAX_VARIABLE_ENTRIES);
+                List<Object> values = new ArrayList<>(length + 1);
+                for (int index = 0; index < length; index++) {
+                    values.add(makeJsonSafe(Array.get(jsValue, index), active, depth + 1));
+                }
+                if (sourceLength > MAX_VARIABLE_ENTRIES) {
+                    values.add("<" + (sourceLength - MAX_VARIABLE_ENTRIES) + " more entries>");
+                }
+                return values;
+            } finally {
+                active.remove(jsValue);
+            }
+        }
+
+        // Never reflectively serialize arbitrary Java objects. BPjs and Rhino objects
+        // commonly contain parent/context links that form cycles.
+        return objectLabel(jsValue);
+    }
+
+    private static String safeToString(Object value) {
+        try {
+            return boundedString(String.valueOf(value));
+        } catch (StackOverflowError | RuntimeException ignored) {
+            return objectLabel(value);
+        }
+    }
+
+    private static String objectLabel(Object value) {
+        return value == null ? "null" : "<" + value.getClass().getSimpleName() + ">";
+    }
+
+    private static String boundedString(String value) {
+        if (value == null || value.length() <= MAX_VARIABLE_STRING_LENGTH) {
+            return value;
+        }
+        return value.substring(0, MAX_VARIABLE_STRING_LENGTH) + "...<truncated>";
     }
 
     public void setRecentlyRegisteredBThreads(Set<Pair<String, Object>> recentlyRegistered) {
